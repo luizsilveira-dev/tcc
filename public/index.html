@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dynamic Budget Marketplace</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; text-align: center; }
+        
+        /* Estilo do Input de Orçamento */
+        .budget-control { 
+            background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d;
+            margin-bottom: 30px; display: inline-block;
+        }
+        input[type="number"] {
+            padding: 10px; font-size: 1.2em; border-radius: 6px; border: 1px solid #30363d;
+            background: #0d1117; color: #fff; width: 150px; text-align: center;
+        }
+        
+        .grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .card { 
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px; 
+            padding: 20px; width: 280px; text-align: left; position: relative;
+            transition: 0.3s;
+        }
+        
+        /* Estilo para item bloqueado */
+        .card.disabled { opacity: 0.5; border-color: #f85149; }
+        .card.disabled h3 { color: #f85149; }
+
+        .price-tag { font-size: 1.4em; color: #7ee787; font-weight: bold; margin: 10px 0; display: block;}
+        .min-cost { font-size: 0.8em; color: #8b949e; }
+
+        button { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-buy { background: #238636; color: white; }
+        .btn-buy:hover { background: #2ea043; }
+        .btn-buy:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h1>Marketplace IA</h1>
+    
+    <div class="budget-control">
+        <label>Meu Orçamento Disponível (R$): </label>
+        <input type="number" id="input-orcamento" value="1500" oninput="carregar()" step="100">
+    </div>
+
+    <div id="app" class="grid"></div>
+
+    <script>
+        const API = 'http://localhost:3000/api/agentes';
+
+        async function carregar() {
+            // Pega o valor digitado no input
+            const valorOrcamento = document.getElementById('input-orcamento').value;
+            
+            // Passa o orçamento na URL
+            const res = await fetch(`${API}?orcamento=${valorOrcamento}`);
+            const agentes = await res.json();
+            
+            const div = document.getElementById('app');
+            div.innerHTML = '';
+
+            agentes.forEach(agente => {
+                // Define classe CSS e estado do botão baseado na resposta do servidor
+                const classeCard = agente.podeComprar ? '' : 'disabled';
+                const textoBotao = agente.podeComprar ? 'Comprar (MWP)' : 'Orçamento Insuficiente';
+                
+                div.innerHTML += `
+                    <div class="card ${classeCard}">
+                        <h3>${agente.nome}</h3>
+                        <div class="min-cost">Utilidade: R$ ${agente.utilidadeMarginal}</div>
+                        <div class="min-cost">Custo Vendedor: R$ ${agente.custoProducao}</div>
+                        
+                        <span class="price-tag">
+                            R$ ${agente.precoVenda.toFixed(2)}
+                        </span>
+                        
+                        ${!agente.podeComprar ? `<p style="color:#f85149; font-size:0.8em">${agente.motivoBloqueio}</p>` : ''}
+
+                        <button class="btn-buy" 
+                            onclick="comprar(${agente.id})" 
+                            ${!agente.podeComprar ? 'disabled' : ''}>
+                            ${textoBotao}
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        async function comprar(id) {
+            const valorOrcamento = document.getElementById('input-orcamento').value;
+
+            const res = await fetch(`${API}/${id}/comprar`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orcamento: parseFloat(valorOrcamento) })
+            });
+            
+            const json = await res.json();
+            
+            if(res.ok) {
+                alert(`✅ ${json.mensagem}\nPreço Pago: R$ ${json.detalhes.preco_final}`);
+            } else {
+                alert(`❌ ${json.mensagem}`);
+            }
+        }
+
+        // Carrega a primeira vez
+        carregar();
+    </script>
+</body>
+</html>
