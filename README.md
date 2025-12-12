@@ -1,7 +1,13 @@
-MVP do TCC
+## MVP do TCC
+Minimum Viable Product do TCC sobre um marketplace com algoritmo de precificação de agentes.
 
-Para rodar:
+## Requisitos
+Para rodar, necessário ter instalado na máquina npm e node.js.
 
-1 - npm install
+Instalar dependências:
+npm install
 
-2 - npm run dev
+Inicializar o servidor:
+npm run dev
+
+Servidor deve ficar acessível na porta 3000 do localhost
