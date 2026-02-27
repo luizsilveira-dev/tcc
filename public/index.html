@@ -4,26 +4,74 @@
     <meta charset="UTF-8">
     <title>Dynamic Budget Marketplace</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; text-align: center; }
-        
-        /* Estilo do Input de Orçamento */
-        .budget-control { 
-            background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d;
-            margin-bottom: 30px; display: inline-block;
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #0d1117; 
+            color: #c9d1d9; 
+            padding: 20px; 
+            text-align: center; 
         }
-        input[type="number"] {
-            padding: 10px; font-size: 1.2em; border-radius: 6px; border: 1px solid #30363d;
-            background: #0d1117; color: #fff; width: 150px; text-align: center;
+
+        h1, h2 { color: #7ee787; }
+
+        .hidden { display: none; }
+
+        /* ===== Login ===== */
+        .login-container {
+            background: #161b22; 
+            border: 1px solid #30363d; 
+            border-radius: 12px; 
+            padding: 40px; 
+            max-width: 400px; 
+            margin: 100px auto;
         }
-        
-        .grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
-        .card { 
-            background: #161b22; border: 1px solid #30363d; border-radius: 8px; 
-            padding: 20px; width: 280px; text-align: left; position: relative;
+        .login-container button {
+            background: #238636; 
+            border: none; 
+            color: white; 
+            padding: 15px 25px; 
+            border-radius: 6px; 
+            font-size: 1.1em; 
+            margin: 10px; 
+            cursor: pointer;
             transition: 0.3s;
         }
-        
-        /* Estilo para item bloqueado */
+        .login-container button:hover {
+            background: #2ea043;
+        }
+
+        /* ===== Marketplace ===== */
+        .budget-control { 
+            background: #161b22; 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid #30363d;
+            margin-bottom: 30px; 
+            display: inline-block;
+        }
+
+        input[type="number"] {
+            padding: 10px; 
+            font-size: 1.2em; 
+            border-radius: 6px; 
+            border: 1px solid #30363d;
+            background: #0d1117; 
+            color: #fff; 
+            width: 150px; 
+            text-align: center;
+        }
+
+        .grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .card { 
+            background: #161b22; 
+            border: 1px solid #30363d; 
+            border-radius: 8px; 
+            padding: 20px; 
+            width: 280px; 
+            text-align: left; 
+            position: relative; 
+            transition: 0.3s;
+        }
         .card.disabled { opacity: 0.5; border-color: #f85149; }
         .card.disabled h3 { color: #f85149; }
 
@@ -34,80 +82,260 @@
         .btn-buy { background: #238636; color: white; }
         .btn-buy:hover { background: #2ea043; }
         .btn-buy:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+
+        /* ===== Header ===== */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px;
+        }
+        .logout-btn {
+            background: #f85149; border: none; color: white;
+            padding: 8px 16px; border-radius: 6px; cursor: pointer;
+        }
+        .logout-btn:hover { background: #da3633; }
     </style>
 </head>
 <body>
 
-    <h1>Marketplace IA</h1>
-    
-    <div class="budget-control">
-        <label>Meu Orçamento Disponível (R$): </label>
-        <input type="number" id="input-orcamento" value="1500" oninput="carregar()" step="100">
+    <!-- ===== TELA DE LOGIN ===== -->
+    <div id="login-screen" class="login-container">
+        <h2>Escolha seu tipo de login</h2>
+        <button onclick="login('cliente')">Entrar como Cliente</button>
+        <button onclick="login('vendedor')">Entrar como Vendedor</button>
     </div>
 
-    <div id="app" class="grid"></div>
+    <!-- ===== TELA PRINCIPAL ===== -->
+    <div id="main-screen" class="hidden">
+        <div class="header">
+            <h1>Marketplace IA</h1>
+            <div>
+                <button class="logout-btn" onclick="logout()">Sair</button>
+            </div>
+        </div>
+        
+        <div id="orcamento-panel" class="budget-control">
+            <label>Meu Orçamento Disponível (R$): </label>
+            <input type="number" id="input-orcamento" value="1500" oninput="carregar()" step="100">
+        </div>
+        <!-- Painel do vendedor (acima do grid) -->
+        <div id="painel-vendedor" style="display:none; margin-bottom:20px;">
+            <button class="btn-buy" style="width:auto; background:#2ea043" onclick="adicionarAgente()">+ Adicionar Agente</button>
+        </div>
+        <div id="app" class="grid"></div>
+    </div>
 
-    <script>
-        const API = 'http://localhost:3000/api/agentes';
+    <!-- substitua o <script> do seu index.html pelo abaixo -->
+<script>
+    const API = 'http://localhost:3000/api/agentes';
 
-        async function carregar() {
-            // Pega o valor digitado no input
-            const valorOrcamento = document.getElementById('input-orcamento').value;
-            
-            // Passa o orçamento na URL
+    // ======== LOGIN / LOGOUT ========
+    function login(tipo) {
+        sessionStorage.setItem('usuario', tipo);
+        mostrarMarketplace();
+    }
+
+    function logout() {
+        sessionStorage.removeItem('usuario');
+        document.getElementById('main-screen').classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    function mostrarMarketplace() {
+        const tipo = sessionStorage.getItem('usuario');
+        if (!tipo) return;
+
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('main-screen').classList.remove('hidden');
+
+        // MOSTRAR/OCULTAR painel do vendedor
+        const painel = document.getElementById('painel-vendedor');
+        painel.style.display = tipo === 'vendedor' ? 'block' : 'none';
+
+        // MOSTRAR/OCULTAR painel de orçamento: se for vendedor, ocultar
+        const orcPanel = document.getElementById('orcamento-panel');
+        if (orcPanel) orcPanel.style.display = tipo === 'vendedor' ? 'none' : 'inline-block';
+
+        carregar();
+    }
+
+    // ======== MARKETPLACE ========
+    async function carregar() {
+        const valorOrcamento = document.getElementById('input-orcamento') ? document.getElementById('input-orcamento').value : 0;
+        try {
             const res = await fetch(`${API}?orcamento=${valorOrcamento}`);
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Erro ao buscar catálogo: ${res.status} ${res.statusText} — ${text}`);
+            }
             const agentes = await res.json();
-            
+
             const div = document.getElementById('app');
             div.innerHTML = '';
 
+            const tipo = sessionStorage.getItem('usuario') || 'cliente';
+
             agentes.forEach(agente => {
-                // Define classe CSS e estado do botão baseado na resposta do servidor
                 const classeCard = agente.podeComprar ? '' : 'disabled';
                 const textoBotao = agente.podeComprar ? 'Comprar (MWP)' : 'Orçamento Insuficiente';
-                
+
                 div.innerHTML += `
                     <div class="card ${classeCard}">
-                        <h3>${agente.nome}</h3>
+                        <h3>${escapeHtml(agente.nome)}</h3>
                         <div class="min-cost">Utilidade: R$ ${agente.utilidadeMarginal}</div>
-                        <div class="min-cost">Custo Vendedor: R$ ${agente.custoProducao}</div>
-                        
-                        <span class="price-tag">
-                            R$ ${agente.precoVenda.toFixed(2)}
-                        </span>
-                        
-                        ${!agente.podeComprar ? `<p style="color:#f85149; font-size:0.8em">${agente.motivoBloqueio}</p>` : ''}
-
-                        <button class="btn-buy" 
-                            onclick="comprar(${agente.id})" 
-                            ${!agente.podeComprar ? 'disabled' : ''}>
-                            ${textoBotao}
-                        </button>
+                        <div class="min-cost">Custo: R$ ${agente.custoProducao}</div>
+                        <span class="price-tag">R$ ${Number(agente.precoVenda).toFixed(2)}</span>
+                        <p>${escapeHtml(agente.descricao || '')}</p>
+                        ${tipo === 'cliente'
+                            ? `<button class="btn-buy" onclick="comprar(${agente.id})" ${!agente.podeComprar ? 'disabled' : ''}>${textoBotao}</button>`
+                            : `
+                            <button class="btn-buy" style="background:#2ea043; width:48%; margin-right:2%;" onclick="editarAgente(${agente.id})">Editar</button>
+                            <button class="btn-buy" style="background:#f85149; width:48%;" onclick="removerAgente(${agente.id})">Remover</button>
+                            `}
                     </div>
                 `;
             });
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao carregar catálogo. Veja console para mais detalhes.');
         }
+    }
 
-        async function comprar(id) {
-            const valorOrcamento = document.getElementById('input-orcamento').value;
+    async function comprar(id) {
+        const valorOrcamento = document.getElementById('input-orcamento') ? document.getElementById('input-orcamento').value : 0;
 
-            const res = await fetch(`${API}/${id}/comprar`, { 
+        try {
+            const res = await fetch(`${API}/${id}/comprar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orcamento: parseFloat(valorOrcamento) })
             });
-            
-            const json = await res.json();
-            
-            if(res.ok) {
-                alert(`✅ ${json.mensagem}\nPreço Pago: R$ ${json.detalhes.preco_final}`);
-            } else {
-                alert(`❌ ${json.mensagem}`);
-            }
+
+            const json = await safeParseJson(res);
+            if (!res.ok) throw new ServerError(res.status, json);
+
+            alert(`✅ ${json.mensagem}\nPreço Pago: R$ ${json.detalhes.preco_final}`);
+        } catch (err) {
+            handleError(err, 'comprar');
+        }
+    }
+
+    // ======== FUNÇÕES DO VENDEDOR ========
+    async function adicionarAgente() {
+        const nome = prompt("Nome do agente:");
+        const tipo = prompt("Tipo:");
+        const utilidadeMarginal = prompt("Utilidade marginal (R$):");
+        const custoProducao = prompt("Custo de produção (R$):");
+        const descricao = prompt("Descrição:");
+
+        if (!nome || !tipo || !utilidadeMarginal || !custoProducao) {
+            return alert("Todos os campos são obrigatórios.");
         }
 
-        // Carrega a primeira vez
-        carregar();
-    </script>
+        try {
+            const res = await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, tipo, utilidadeMarginal, custoProducao, descricao })
+            });
+
+            const json = await safeParseJson(res);
+            if (!res.ok) throw new ServerError(res.status, json);
+
+            alert(json.mensagem || 'Agente criado com sucesso!');
+            carregar();
+        } catch (err) {
+            handleError(err, 'adicionarAgente');
+        }
+    }
+
+    async function editarAgente(id) {
+        const nome = prompt("Novo nome (deixe vazio para manter):");
+        const tipo = prompt("Novo tipo (deixe vazio para manter):");
+        const utilidadeMarginal = prompt("Nova utilidade marginal (deixe vazio para manter):");
+        const custoProducao = prompt("Novo custo de produção (deixe vazio para manter):");
+        const descricao = prompt("Nova descrição (deixe vazio para manter):");
+
+        const payload = {};
+        if (nome) payload.nome = nome;
+        if (tipo) payload.tipo = tipo;
+        if (utilidadeMarginal) payload.utilidadeMarginal = utilidadeMarginal;
+        if (custoProducao) payload.custoProducao = custoProducao;
+        if (descricao) payload.descricao = descricao;
+
+        try {
+            const res = await fetch(`${API}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const json = await safeParseJson(res);
+            if (!res.ok) throw new ServerError(res.status, json);
+
+            alert(json.mensagem || 'Agente atualizado com sucesso!');
+            carregar();
+        } catch (err) {
+            handleError(err, 'editarAgente');
+        }
+    }
+
+    async function removerAgente(id) {
+        if (!confirm("Tem certeza que deseja remover este agente?")) return;
+
+        try {
+            const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+            const json = await safeParseJson(res);
+            if (!res.ok) throw new ServerError(res.status, json);
+
+            alert(json.mensagem || 'Agente removido.');
+            carregar();
+        } catch (err) {
+            handleError(err, 'removerAgente');
+        }
+    }
+
+    // ======== Helpers ========
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+    }
+
+    async function safeParseJson(response) {
+        const text = await response.text();
+        try {
+            return JSON.parse(text || '{}');
+        } catch {
+            return { _raw: text };
+        }
+    }
+
+    class ServerError extends Error {
+        constructor(status, payload) {
+            super(`Server returned ${status}`);
+            this.status = status;
+            this.payload = payload;
+        }
+    }
+
+    function handleError(err, context = '') {
+        console.error(`Erro em ${context}:`, err);
+        if (err instanceof ServerError) {
+            const p = err.payload || {};
+            // tenta extrair mensagem do payload
+            const msg = p.mensagem || p.message || JSON.stringify(p);
+            alert(`Erro do servidor (${err.status}): ${msg}`);
+        } else {
+            alert(`Erro: ${err.message || err}`);
+        }
+    }
+
+    // Auto-login se já tiver sessão
+    window.onload = mostrarMarketplace;
+</script>
 </body>
 </html>

@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  password String  // A senha será salva criptografada (hash)
+  nome     String
+  saldo    Float   @default(1000.00) // Damos 1000 reais de crédito inicial
+  compras  Compra[] // Relação: Um usuário tem várias compras
+}
+
+model Agent {
+  id          Int     @id @default(autoincrement())
+  nome        String
+  tipo        String
+  precoBase   Float
+  vendas      Int     @default(0)
+  compras     Compra[] // Relação: Um agente aparece em várias compras
+}
+
+model Compra {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  agentId   Int
+  precoPago Float
+  data      DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id])
+  agent     Agent    @relation(fields: [agentId], references: [id])
+}
