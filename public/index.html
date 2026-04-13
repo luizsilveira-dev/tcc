@@ -76,6 +76,7 @@
         .card.disabled h3 { color: #f85149; }
 
         .price-tag { font-size: 1.4em; color: #7ee787; font-weight: bold; margin: 10px 0; display: block;}
+        .price-tag.preco-dinamico { color: #a855f7; }
         .min-cost { font-size: 0.8em; color: #8b949e; }
 
         button { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
@@ -93,6 +94,48 @@
             padding: 8px 16px; border-radius: 6px; cursor: pointer;
         }
         .logout-btn:hover { background: #da3633; }
+
+        /* ===== Modal de Edição ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 32px;
+            width: 100%;
+            max-width: 440px;
+            text-align: left;
+        }
+        .modal h2 { margin: 0 0 20px; color: #7ee787; font-size: 1.2em; }
+        .modal label { display: block; font-size: 0.85em; color: #8b949e; margin-bottom: 4px; margin-top: 14px; }
+        .modal input, .modal textarea {
+            width: 100%; box-sizing: border-box;
+            padding: 9px 12px; border-radius: 6px;
+            border: 1px solid #30363d;
+            background: #0d1117; color: #fff;
+            font-size: 0.95em;
+        }
+        .modal input:focus, .modal textarea:focus {
+            outline: none; border-color: #58a6ff;
+        }
+        .modal .field-error {
+            font-size: 0.78em; color: #f85149; margin-top: 3px; display: none;
+        }
+        .modal .field-error.visible { display: block; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+        .modal-actions button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 0.95em; }
+        .btn-cancelar { background: #30363d; color: #c9d1d9; }
+        .btn-cancelar:hover { background: #3d444b; }
+        .btn-salvar { background: #238636; color: white; }
+        .btn-salvar:hover { background: #2ea043; }
     </style>
 </head>
 <body>
@@ -124,9 +167,42 @@
         <div id="app" class="grid"></div>
     </div>
 
+    <!-- ===== MODAL DE EDIÇÃO ===== -->
+    <div id="modal-editar" class="modal-overlay">
+        <div class="modal">
+            <h2>Editar Agente</h2>
+
+            <label for="edit-nome">Nome</label>
+            <input type="text" id="edit-nome" maxlength="100" placeholder="Nome do agente">
+            <div class="field-error" id="err-nome">O nome não pode estar vazio.</div>
+
+            <label for="edit-tipo">Tipo</label>
+            <input type="text" id="edit-tipo" maxlength="60" placeholder="Ex: DevOps, Imagem...">
+            <div class="field-error" id="err-tipo">O tipo não pode estar vazio.</div>
+
+            <label for="edit-utilidade">Utilidade Marginal (R$)</label>
+            <input type="number" id="edit-utilidade" min="0.01" step="0.01" placeholder="0.00">
+            <div class="field-error" id="err-utilidade">Informe um valor maior que zero.</div>
+
+            <label for="edit-custo">Custo de Produção (R$)</label>
+            <input type="number" id="edit-custo" min="0.01" step="0.01" placeholder="0.00">
+            <div class="field-error" id="err-custo">Informe um valor maior que zero.</div>
+            <div class="field-error" id="err-custo-utilidade">O custo não pode ser maior que a utilidade marginal.</div>
+
+            <label for="edit-descricao">Descrição</label>
+            <textarea id="edit-descricao" rows="3" maxlength="300" placeholder="Descrição do agente"></textarea>
+
+            <div class="modal-actions">
+                <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+                <button class="btn-salvar" onclick="salvarEdicao()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- substitua o <script> do seu index.html pelo abaixo -->
 <script>
     const API = 'http://localhost:3000/api/agentes';
+    let _ultimosAgentes = [];
 
     // ======== LOGIN / LOGOUT ========
     function login(tipo) {
@@ -172,18 +248,21 @@
             const div = document.getElementById('app');
             div.innerHTML = '';
 
+            _ultimosAgentes = agentes;
             const tipo = sessionStorage.getItem('usuario') || 'cliente';
 
             agentes.forEach(agente => {
                 const classeCard = agente.podeComprar ? '' : 'disabled';
-                const textoBotao = agente.podeComprar ? 'Comprar (MWP)' : 'Orçamento Insuficiente';
+                const textoBotao = agente.podeComprar ? 'Comprar' : 'Orçamento Insuficiente';
+                const precoAbaixoDoCheio = tipo === 'cliente' && agente.podeComprar && agente.precoVenda < agente.utilidadeMarginal;
+                const classePrecо = precoAbaixoDoCheio ? 'price-tag preco-dinamico' : 'price-tag';
 
                 div.innerHTML += `
                     <div class="card ${classeCard}">
                         <h3>${escapeHtml(agente.nome)}</h3>
                         <div class="min-cost">Utilidade: R$ ${agente.utilidadeMarginal}</div>
                         <div class="min-cost">Custo: R$ ${agente.custoProducao}</div>
-                        <span class="price-tag">R$ ${Number(agente.precoVenda).toFixed(2)}</span>
+                        <span class="${classePrecо}">R$ ${Number(agente.precoVenda).toFixed(2)}</span>
                         <p>${escapeHtml(agente.descricao || '')}</p>
                         ${tipo === 'cliente'
                             ? `<button class="btn-buy" onclick="comprar(${agente.id})" ${!agente.podeComprar ? 'disabled' : ''}>${textoBotao}</button>`
@@ -248,22 +327,67 @@
         }
     }
 
-    async function editarAgente(id) {
-        const nome = prompt("Novo nome (deixe vazio para manter):");
-        const tipo = prompt("Novo tipo (deixe vazio para manter):");
-        const utilidadeMarginal = prompt("Nova utilidade marginal (deixe vazio para manter):");
-        const custoProducao = prompt("Novo custo de produção (deixe vazio para manter):");
-        const descricao = prompt("Nova descrição (deixe vazio para manter):");
+    let _editandoId = null;
 
-        const payload = {};
-        if (nome) payload.nome = nome;
-        if (tipo) payload.tipo = tipo;
-        if (utilidadeMarginal) payload.utilidadeMarginal = utilidadeMarginal;
-        if (custoProducao) payload.custoProducao = custoProducao;
-        if (descricao) payload.descricao = descricao;
+    function editarAgente(id) {
+        // Busca dados atuais do agente a partir dos cards já renderizados
+        const agentes = _ultimosAgentes || [];
+        const agente = agentes.find(a => a.id === id);
+
+        _editandoId = id;
+
+        document.getElementById('edit-nome').value      = agente ? agente.nome : '';
+        document.getElementById('edit-tipo').value      = agente ? agente.tipo : '';
+        document.getElementById('edit-utilidade').value = agente ? agente.utilidadeMarginal : '';
+        document.getElementById('edit-custo').value     = agente ? agente.custoProducao : '';
+        document.getElementById('edit-descricao').value = agente ? (agente.descricao || '') : '';
+
+        // limpa erros anteriores
+        document.querySelectorAll('.field-error').forEach(el => el.classList.remove('visible'));
+
+        document.getElementById('modal-editar').classList.add('active');
+    }
+
+    function fecharModal() {
+        document.getElementById('modal-editar').classList.remove('active');
+        _editandoId = null;
+    }
+
+    function validarModal() {
+        let ok = true;
+
+        const nome = document.getElementById('edit-nome').value.trim();
+        const tipo = document.getElementById('edit-tipo').value.trim();
+        const utilidade = parseFloat(document.getElementById('edit-utilidade').value);
+        const custo = parseFloat(document.getElementById('edit-custo').value);
+
+        const mostrar = (id, visivel) =>
+            document.getElementById(id).classList.toggle('visible', visivel);
+
+        mostrar('err-nome',             !nome);
+        mostrar('err-tipo',             !tipo);
+        mostrar('err-utilidade',        !utilidade || utilidade <= 0);
+        mostrar('err-custo',            !custo || custo <= 0);
+        mostrar('err-custo-utilidade',  custo > 0 && utilidade > 0 && custo > utilidade);
+
+        if (!nome || !tipo || !utilidade || utilidade <= 0 || !custo || custo <= 0 || custo > utilidade) ok = false;
+
+        return ok;
+    }
+
+    async function salvarEdicao() {
+        if (!validarModal()) return;
+
+        const payload = {
+            nome:             document.getElementById('edit-nome').value.trim(),
+            tipo:             document.getElementById('edit-tipo').value.trim(),
+            utilidadeMarginal: parseFloat(document.getElementById('edit-utilidade').value),
+            custoProducao:    parseFloat(document.getElementById('edit-custo').value),
+            descricao:        document.getElementById('edit-descricao').value.trim()
+        };
 
         try {
-            const res = await fetch(`${API}/${id}`, {
+            const res = await fetch(`${API}/${_editandoId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -272,7 +396,7 @@
             const json = await safeParseJson(res);
             if (!res.ok) throw new ServerError(res.status, json);
 
-            alert(json.mensagem || 'Agente atualizado com sucesso!');
+            fecharModal();
             carregar();
         } catch (err) {
             handleError(err, 'editarAgente');
@@ -333,6 +457,11 @@
             alert(`Erro: ${err.message || err}`);
         }
     }
+
+    // Fecha modal ao clicar fora dele
+    document.getElementById('modal-editar').addEventListener('click', function(e) {
+        if (e.target === this) fecharModal();
+    });
 
     // Auto-login se já tiver sessão
     window.onload = mostrarMarketplace;
